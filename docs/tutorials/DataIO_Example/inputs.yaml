@@ -2,7 +2,6 @@
 
 # Full path to data file:
 data_file: "/zfs/astrohe/ckarwin/COSI/Data_Challenge/Data_Challenge_1/Run_3/Main_Output/Output/GalacticScan.inc1.id1.extracted.tra.gz"
-#data_file: "/zfs/astrohe/ckarwin/COSI/Data_Challenge/Data_Challenge_1/Run_7/Main_Output/Output/preliminary_DC1_full.inc1.id1.extracted.tra.gz"
 
 # Full path to mass model (this needs to be moved to housekeeping_data_io.yaml)
 geo_file: "/zfs/astrohe/ckarwin/My_Class_Library/COSI/Data_Challenge/Input_Files/Geometry_Files/COSI_Balloon_Geometry_9Det/COSI.DetectorHead.geo.setup"
