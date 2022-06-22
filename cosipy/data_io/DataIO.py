@@ -45,7 +45,7 @@ class DataIO:
         housekeeping_file = os.path.join(housekeeping_dir,"housekeeping_data_io.yaml")
         with open(housekeeping_file,"r") as file:
              inputs = yaml.load(file,Loader=yaml.FullLoader)
-        self.mimrec_config = os.path.join(housekeeping_dir,inputs['mimrec_config'] # Default mimrec configuration file
+        self.mimrec_config = os.path.join(housekeeping_dir,inputs['mimrec_config']) # Default mimrec configuration file
 
         # Load main user inputs from input_yaml file:
         with open(input_yaml,"r") as file:
