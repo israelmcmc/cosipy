@@ -139,7 +139,7 @@ class UnBinnedData(DataIO):
                         'Psi galactic':psi_gal}
                         
         Input (optional):
-        tra_file: Name of tra file to read. Default is output from select_data().
+        tra_file: Name of tra file to read. Default is output from select_data method.
         """
 
         # Make print statement:
