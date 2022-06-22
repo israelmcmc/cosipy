@@ -322,7 +322,7 @@ class BinnedData(UnBinnedData):
         this_dict = {}
         
         # Fill dictionary from input h5fy file:
-        hf = h5py.File("unbinned_data.hdf5","r")
+        hf = h5py.File(input_hdf5,"r")
         keys = list(hf.keys())
         for each in keys:
             this_dict[each] = hf[each][:]
