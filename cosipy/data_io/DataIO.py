@@ -123,7 +123,7 @@ class UnBinnedData(DataIO):
     def read_tra(self,tra_file="selected_data.inc1.id1.extracted.tra.gz"):
         
         """
-        Reads in MEGAlib .tra (or .tra.gz) file (self.filename).
+        Reads in MEGAlib .tra (or .tra.gz) file.
         Returns COSI dataset as a dictionary of the form:
         cosi_dataset = {'Full filename':self.data_file,
                         'Energies':erg,
@@ -137,6 +137,9 @@ class UnBinnedData(DataIO):
                         'Distance':dist,
                         'Chi galactic':chi_gal,
                         'Psi galactic':psi_gal}
+                        
+        Input (optional):
+        tra_file: Name of tra file to read. Default is output from select_data().
         """
 
         # Make print statement:
