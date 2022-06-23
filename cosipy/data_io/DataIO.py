@@ -473,19 +473,19 @@ class BinnedData(UnBinnedData):
             plt.close() 
  
         # Plot PsiChi mhealpy default:
-        ax,plot = healpix_map.plot()
-        ax.get_figure().axes[-1].set_xlabel("Number of Photons")
-        ax.get_figure().set_figwidth(7)
-        ax.get_figure().set_figheight(5.5)
+        plot,ax = healpix_map.plot()
+        ax.get_figure().set_figwidth(5)
+        ax.get_figure().set_figheight(3.2)
+        plt.title("PsiChi Binning (counts)")
         plt.savefig("psichi_default.png",bbox_inches='tight')
         plt.show()
         plt.close()
 
         # Plot PsiChi mhealpy rotated:
-        ax,plot = healpix_map.plot(ax = 'orthview', ax_kw = {'rot':[0,90,0]})
-        ax.get_figure().axes[-1].set_xlabel("Number of Photons")
-        ax.get_figure().set_figwidth(6)
-        ax.get_figure().set_figheight(6)
+        plot,ax = healpix_map.plot(ax = 'orthview', ax_kw = {'rot':[0,90,0]})
+        ax.get_figure().set_figwidth(3)
+        ax.get_figure().set_figheight(4)
+        plt.title("PsiChi Binning (counts)")
         plt.savefig("psichi_rotated.png",bbox_inches='tight')
         plt.show()
         plt.close()
