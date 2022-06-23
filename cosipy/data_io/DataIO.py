@@ -474,8 +474,8 @@ class BinnedData(UnBinnedData):
  
         # Plot PsiChi mhealpy default:
         plot,ax = healpix_map.plot()
-        ax.get_figure().set_figwidth(5)
-        ax.get_figure().set_figheight(3.2)
+        ax.get_figure().set_figwidth(4)
+        ax.get_figure().set_figheight(3)
         plt.title("PsiChi Binning (counts)")
         plt.savefig("psichi_default.png",bbox_inches='tight')
         plt.show()
