@@ -22,7 +22,7 @@ import collections
 import copy
 
 class COSILike(PluginPrototype):
-    def __init__(self, name, dr, data, bkg, sc_orientation, nuisance_param=None, **kwargs):
+    def __init__(self, name, psr, data, bkg, sc_orientation = None, nuisance_param=None, **kwargs):
         """
         COSI 3ML plugin
         
@@ -51,15 +51,15 @@ class COSILike(PluginPrototype):
 
         # User inputs needed to compute the likelihood
         self._name = name
-        self._dr = FullDetectorResponse.open(dr)
+        #self._dr = FullDetectorResponse.open(dr)
         self._data = data
         self._bkg = bkg
-        self._sc_orientation = sc_orientation
+        #self._sc_orientation = sc_orientation
     
         # Place-holder for cached data.
         self._model = None
         self._source = None
-        self._psr = None
+        self._psr = psr
         self._signal = None
         
         # Set to fit nuisance parameter if given by user
@@ -101,7 +101,9 @@ class COSILike(PluginPrototype):
             # Compute point source response for source position
             # See also the Detector Response and Source Injector tutorials
             if self._psr is None:
-            
+
+                raise RuntimeError("Shouln't happend, fudge")
+                
                 coord = self._source.position.sky_coord
             
                 dwell_time_map = self._get_dwell_time_map(coord)
@@ -110,6 +112,8 @@ class COSILike(PluginPrototype):
                 
             elif (source.position.sky_coord != self._source.position.sky_coord):
                 
+                raise RuntimeError("Shouln't happend, fudge")
+
                 coord = source.position.sky_coord
                 
                 dwell_time_map = self._get_dwell_time_map(coord)
