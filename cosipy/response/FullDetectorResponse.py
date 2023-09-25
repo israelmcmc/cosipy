@@ -188,7 +188,7 @@ class FullDetectorResponse(HealpixBase):
 
                     if axes_types[-1] == "FISBEL":
 
-                        raise RuntimeError("FISBEL binning not currently supported")
+                        axes_edges.append(np.arange(0, int(line[1])+1))
                         
                     elif axes_types[-1] == "HEALPix":
 
@@ -228,7 +228,7 @@ class FullDetectorResponse(HealpixBase):
                     edges += (np.arange(axis_edges+1),)
 
             elif axis_type == "FISBEL":
-                raise RuntimeError("FISBEL binning not currently supported")
+                edges += (axis_edges,)
             else:
                 edges += (axis_edges,)
 
@@ -282,8 +282,6 @@ class FullDetectorResponse(HealpixBase):
                     sbin += 1
                     
                 progress_bar.update(1)
-
-                
                 
         
         progress_bar.close()
@@ -293,8 +291,6 @@ class FullDetectorResponse(HealpixBase):
                 "get the effective area")
         # create histpy histogram
         dr = Histogram(axes, contents=COO(coords=coords[:, :nbins_sparse], data= data[:nbins_sparse], shape = tuple(axes.nbins)))
-
-        
 
         # Weight to get effective area
 
@@ -363,6 +359,8 @@ class FullDetectorResponse(HealpixBase):
         counts2area = area_sim / nperchannel
         dr_area = dr * dr.expand_dims(counts2area, 'Ei')
 
+        return dr_area
+        
         # end of weight now we create the .h5 structure
 
         npix = dr_area.axes['NuLambda'].nbins
@@ -394,12 +392,20 @@ class FullDetectorResponse(HealpixBase):
 
             if axis.label in ['NuLambda', 'PsiChi', 'SigmaTau']:
 
-                # HEALPix
-                axis_dataset.attrs['TYPE'] = 'healpix'
+                if 'HEALPix' in axes_types:
+                    # HEALPix
+                    axis_dataset.attrs['TYPE'] = 'healpix'
 
-                axis_dataset.attrs['NSIDE'] = nside
+                    axis_dataset.attrs['NSIDE'] = nside
 
-                axis_dataset.attrs['SCHEME'] = 'ring'
+                    axis_dataset.attrs['SCHEME'] = 'ring'
+
+                else:
+                    # FISBEL
+
+                    axis_dataset.attrs['TYPE'] = 'fisbel'
+
+                    axis_dataset.attrs['NPIX'] = axis.nbins
 
             else:
 
@@ -482,10 +488,15 @@ class FullDetectorResponse(HealpixBase):
                                          coordsys=SpacecraftFrame())]
 
             else:
-                axes += [Axis(np.array(axis) * u.Unit(axis.attrs['UNIT']),
-                                  scale=axis_type,
-                                  label=axis_label)]
 
+                edges = np.array(axis)
+                
+                if 'UNIT' in axis.attrs:
+                    edges = edges * u.Unit(axis.attrs['UNIT'])
+                    
+                axes += [Axis(edges,
+                              scale=axis_type,
+                              label=axis_label)]
                 
 
         new._axes = Axes(axes)
