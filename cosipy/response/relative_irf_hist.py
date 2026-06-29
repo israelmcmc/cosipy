@@ -1,21 +1,16 @@
+from concurrent.futures import ThreadPoolExecutor
 from typing import Iterable, Tuple
 
 import numpy as np
 from astropy import units as u
-from astropy.coordinates import spherical_to_cartesian, UnitSphericalRepresentation
-from astropy.io.fits import update
+from astropy.coordinates import UnitSphericalRepresentation
 from astropy.units import Quantity
 from histpy import Histogram, HealpixAxis, Axis
-from mhealpy.plot.axes import HealpyAxes
 
 from cosipy.interfaces import EventDataInterface
 from cosipy.interfaces.data_interface import EmCDSEventDataInSCFrameInterface
-from cosipy.interfaces.event import EmCDSEventInSCFrameInterface
 from cosipy.interfaces.instrument_response_interface import FarFieldSpectralInstrumentResponseFunctionInterface
-from cosipy.interfaces.photon_parameters import PhotonWithDirectionAndEnergyInSCFrameInterface, PhotonListInterface, \
-    PhotonListWithDirectionInSCFrameInterface, PhotonListWithDirectionAndEnergyInSCFrameInterface
-
-import h5py as h5
+from cosipy.interfaces.photon_parameters import PhotonListWithDirectionInSCFrameInterface, PhotonListWithDirectionAndEnergyInSCFrameInterface
 
 from cosipy.polarization import PolarizationAxis
 from cosipy.response.relative_coordinates import RelativeCDSCoordinates
@@ -29,9 +24,16 @@ class IRFRelativeHistUnpolarized(FarFieldSpectralInstrumentResponseFunctionInter
 
     def __init__(self,
                  irf: Histogram,
-                 pol_convention,
                  copy = True,
-                 batch_size=100000):
+                 nthreads=1):
+        """
+
+        Parameters
+        ----------
+        irf
+        copy
+        nthreads: 4-8 recommended
+        """
 
         if copy:
             irf = irf.copy()
@@ -101,7 +103,7 @@ class IRFRelativeHistUnpolarized(FarFieldSpectralInstrumentResponseFunctionInter
         self._diff_aeff = irf
 
         # Extra params
-        self._batch_size = batch_size
+        self._nthreads = nthreads
 
     @classmethod
     def from_h5(cls, filename, *args, **kwargs):
@@ -118,6 +120,17 @@ class IRFRelativeHistUnpolarized(FarFieldSpectralInstrumentResponseFunctionInter
 
         return cls(Histogram.open(filename, "IRF"), *args, **kwargs)
 
+    @staticmethod
+    def _photon_list_to_raw_values(photons:PhotonListWithDirectionAndEnergyInSCFrameInterface):
+
+        photon_lon_rad = asarray(photons.direction_lon_rad_sc, float)
+        photon_lat_rad = asarray(photons.direction_lat_rad_sc, float)
+
+        photon_energy_keV = asarray(photons.energy_keV, float)
+
+        return photon_lon_rad, photon_lat_rad, photon_energy_keV
+
+
     def _effective_area_cm2(self, photons: PhotonListWithDirectionAndEnergyInSCFrameInterface) -> Iterable[float]:
         """
 
@@ -130,23 +143,24 @@ class IRFRelativeHistUnpolarized(FarFieldSpectralInstrumentResponseFunctionInter
 
         """
 
-        photon_dir, photon_energy_keV = self._photon_list_to_raw_values(photons)
+        chunks = zip(*[np.array_split(_, self._nthreads) for _ in self._photon_list_to_raw_values(photons)])
 
-        return self._tot_aeff.interp({'NuLambda': photon_dir,
-                                      'Ei': photon_energy_keV})
+        def chunk_interp(args):
+            """
+            Auxiliary function
 
-    @staticmethod
-    def _photon_list_to_raw_values(photons:PhotonListWithDirectionAndEnergyInSCFrameInterface):
+            args = (photon_lon_rad, photon_lat_rad, photon_energy_keV)
+            """
+            photon_dir = UnitSphericalRepresentation(lon=Quantity(args[0], 'rad', copy=False),
+                                                     lat=Quantity(args[1], 'rad', copy=False))
 
-        photon_lon_rad = asarray(photons.direction_lon_rad_sc, float)
-        photon_lat_rad = asarray(photons.direction_lat_rad_sc, float)
+            return self._tot_aeff.interp(photon_dir, args[2])
 
-        photon_dir = UnitSphericalRepresentation(lon=Quantity(photon_lon_rad, 'rad', copy=False),
-                                                 lat=Quantity(photon_lat_rad, 'rad', copy=False))
+        with ThreadPoolExecutor(max_workers=self._nthreads) as ex:
+            results = ex.map(chunk_interp, chunks)
+            results = np.concatenate(list(results))
 
-        photon_energy_keV = asarray(photons.energy_keV, float)
-
-        return photon_dir, photon_energy_keV
+        return results
 
     def _differential_effective_area_cm2(self, photons:PhotonListWithDirectionAndEnergyInSCFrameInterface, events: EmCDSEventDataInSCFrameInterface) -> Iterable[float]:
         """
@@ -160,15 +174,20 @@ class IRFRelativeHistUnpolarized(FarFieldSpectralInstrumentResponseFunctionInter
 
         """
 
-        photon_dir, photon_energy_keV = self._photon_list_to_raw_values(photons)
+        # Get input as arrays
+        photon_lon_rad, photon_lat_rad, photon_energy_keV = self._photon_list_to_raw_values(photons)
+
+        photon_dir = UnitSphericalRepresentation(lon=Quantity(photon_lon_rad, 'rad', copy=False),
+                                                 lat=Quantity(photon_lat_rad, 'rad', copy=False))
 
         psichi_lon_rad = asarray(events.scattered_lon_rad_sc, float)
         psichi_lat_rad = asarray(events.scattered_lat_rad_sc, float)
 
-        psichi_dir = UnitSphericalRepresentation(lon = Quantity(psichi_lon_rad, 'rad', copy = False),
-                                                 lat = Quantity(psichi_lat_rad, 'rad', copy = False))
+        psichi_dir = UnitSphericalRepresentation(lon=Quantity(psichi_lon_rad, 'rad', copy=False),
+                                                 lat=Quantity(psichi_lat_rad, 'rad', copy=False))
 
         phi_kin_rad = asarray(events.scattering_angle_rad, float)
+
         measured_energy_keV = asarray(events.energy_keV, float)
 
         # Convert to relative coordinates
@@ -182,13 +201,26 @@ class IRFRelativeHistUnpolarized(FarFieldSpectralInstrumentResponseFunctionInter
 
         theta_rad = phi_geo_rad - phi_kin_rad
 
-        return self._diff_aeff.interp({'NuLambda': photon_dir,
-                                       'Ei': photon_energy_keV,
-                                       'Epsilon': epsilon,
-                                       'Phi': phi_kin_rad,
-                                       'Theta': theta_rad,
-                                       'Zeta': zeta_rad})
+        chunks = zip(*[np.array_split(_, self._nthreads) for _ in [photon_lon_rad, photon_lat_rad, photon_energy_keV, phi_kin_rad, theta_rad, zeta_rad]])
 
+        def chunk_interp(args):
+            """
+            Auxiliary function
+
+            'NuLambda', 'Ei', 'Epsilon', 'Phi', 'Theta', 'Zeta'
+
+            args = (photon_lon_rad, photon_lat_rad, photon_energy_keV, phi_kin_rad, theta_rad, zeta_rad)
+            """
+            photon_dir = UnitSphericalRepresentation(lon=Quantity(args[0], 'rad', copy=False),
+                                                     lat=Quantity(args[1], 'rad', copy=False))
+
+            return self._diff_aeff.interp(photon_dir, *args[2:])
+
+        with ThreadPoolExecutor(max_workers=self._nthreads) as ex:
+            results = ex.map(chunk_interp, chunks)
+            results = np.concatenate(list(results))
+
+        return results
 
     def _random_events(self, photons: PhotonListWithDirectionInSCFrameInterface) -> EventDataInterface:
         """
